@@ -33,5 +33,10 @@ esp-idf-svc = { version = "0.49", default-features = false }
 esp-idf-hal = "0.44.1"
 esp-idf-sys = { version = "0.35.0", features = ["binstart"] }
 
+# [dependencies.esp-wifi]
+# # A supported chip needs to be specified, as well as specific use-case features
+# features = ["esp32c3", "wifi", "esp-now"]
+# version = "0.6.0"
+
 [build-dependencies]
 embuild = "0.32.0"
