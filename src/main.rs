@@ -1,8 +1,15 @@
+use config::DriverConfig;
 use embedded_graphics::pixelcolor::Rgb888;
 use embedded_graphics::prelude::*;
 use embedded_graphics::primitives::{Circle, PrimitiveStyle, Rectangle, Triangle};
+use esp_idf_hal::delay::Delay;
 use esp_idf_hal::gpio::{IOPin, InputPin, PinDriver, Pull};
+use esp_idf_hal::spi::{self, *};
+use esp_idf_hal::units::Hertz;
 use smart_leds::hsv::{hsv2rgb, Hsv};
+use esp_idf_hal::spi::{config::Config, Dma, SpiDriver, SPI2};
+use display_interface_spi::SPIInterface;
+use st7789::ST7789;
 
 use std::net::Ipv4Addr;
 use std::str::FromStr;
@@ -20,11 +27,9 @@ use esp_idf_svc::{
     wifi::{AccessPointConfiguration, Configuration},
 };
 use esp_idf_sys::EspError;
+use esp_idf_sys::*;
 use ws2812_esp32_rmt_driver::lib_embedded_graphics::{LedPixelMatrix, Ws2812DrawTarget};
 use ws2812_esp32_rmt_driver::Ws2812Esp32Rmt;
-use esp_idf_sys::*;
-
-pub mod buttons;
 
 /**
  * Pin Mapping
@@ -57,6 +62,23 @@ fn main() -> Result<(), EspError> {
     // Initialize system event loop
     let sysloop = EspSystemEventLoop::take().unwrap();
 
+    let delay = Delay::new_default();
+
+    // let reset = PinDriver::input_output_od(peripherals.pins.gpio5).unwrap();
+    // let mut sps = SpiDriver::new_without_sclk(peripherals.spi2, peripherals.pins.gpio4, None, &DriverConfig::default()).unwrap();
+    // let di = SPIInterface::new(sps, Dma::Disabled);
+
+    // let config = DriverConfig::default();
+    // let dc = PinDriver::output(peripherals.pins.gpio4).unwrap();
+    // let spi = SpiDriver::new_without_sclk(peripherals.spi2, peripherals.pins.gpio4, None, &config).unwrap();
+    // let di: SPIInterface<_, _> = SPIInterface::new(spi, dc);
+
+    // let mut display = ST7789::new(di, None, None, 240, 240);
+    // display.init(&mut delay).unwrap();
+
+    let mut button1 = PinDriver::input(peripherals.pins.gpio10).unwrap();
+    button1.set_pull(Pull::Up).unwrap();
+
     let led_pin = peripherals.pins.gpio9;
     let channel = peripherals.rmt.channel0;
 
@@ -72,10 +94,10 @@ fn main() -> Result<(), EspError> {
         .take(25);
         ws2812.write_nocopy(pixels).unwrap();
 
-        // // check button 1
-        // if button1.is_low() {
-        //     log::info!("Button 1 pressed");
-        // }
+        // check button 1
+        if button1.is_low() {
+            log::info!("Button 1 pressed");
+        }
 
         FreeRtos::delay_ms(100);
 
@@ -147,26 +169,26 @@ fn main() -> Result<(), EspError> {
     // }
 }
 
-/**
- * Pin Mapping
- * gpio10 - button1
- * gpio8 - button2
- * gpio3 - button3
- * gpio2 - button4
- *
- * button1 is the most right button
- * button4 is the most left button
- */
-pub fn setup_buttons(peripherals: Peripherals) {
-    let mut button1 = PinDriver::input(peripherals.pins.gpio10).unwrap();
-    button1.set_pull(esp_idf_hal::gpio::Pull::Up).unwrap();
+// /**
+//  * Pin Mapping
+//  * gpio10 - button1
+//  * gpio8 - button2
+//  * gpio3 - button3
+//  * gpio2 - button4
+//  *
+//  * button1 is the most right button
+//  * button4 is the most left button
+//  */
+// pub fn setup_buttons(peripherals: Peripherals) {
+//     let mut button1 = PinDriver::input(peripherals.pins.gpio10).unwrap();
+//     button1.set_pull(esp_idf_hal::gpio::Pull::Up).unwrap();
 
-    let mut button2 = PinDriver::input(peripherals.pins.gpio8).unwrap();
-    button2.set_pull(esp_idf_hal::gpio::Pull::Up).unwrap();
+//     let mut button2 = PinDriver::input(peripherals.pins.gpio8).unwrap();
+//     button2.set_pull(esp_idf_hal::gpio::Pull::Up).unwrap();
 
-    let mut button3 = PinDriver::input(peripherals.pins.gpio3).unwrap();
-    button3.set_pull(esp_idf_hal::gpio::Pull::Up).unwrap();
+//     let mut button3 = PinDriver::input(peripherals.pins.gpio3).unwrap();
+//     button3.set_pull(esp_idf_hal::gpio::Pull::Up).unwrap();
 
-    let mut button4 = PinDriver::input(peripherals.pins.gpio2).unwrap();
-    button4.set_pull(esp_idf_hal::gpio::Pull::Up).unwrap();
-}
+//     let mut button4 = PinDriver::input(peripherals.pins.gpio2).unwrap();
+//     button4.set_pull(esp_idf_hal::gpio::Pull::Up).unwrap();
+// }
