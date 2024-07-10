@@ -24,6 +24,7 @@ use ws2812_esp32_rmt_driver::lib_embedded_graphics::{LedPixelMatrix, Ws2812DrawT
 use ws2812_esp32_rmt_driver::Ws2812Esp32Rmt;
 use esp_idf_sys::*;
 
+pub mod buttons;
 
 /**
  * Pin Mapping
@@ -31,10 +32,6 @@ use esp_idf_sys::*;
  * spi2 - bus 2
  * gpio4 - data control (display)
  * gpio5 - display reset (display)
- * gpio10 - button1
- * gpio8 - button2
- * gpio3 - button3
- * gpio2 - button4
  *
  * the device has 4 individually addressable leds in a row on pin 9
  */
@@ -51,6 +48,9 @@ fn main() -> Result<(), EspError> {
     // Grab peripherals
     let peripherals = Peripherals::take().unwrap();
 
+    // Temp button setup
+    // let buttons = setup_buttons(peripherals);
+
     // Initialize NVS
     let nvs_partition = EspDefaultNvsPartition::take().unwrap();
 
@@ -62,10 +62,6 @@ fn main() -> Result<(), EspError> {
 
     let mut ws2812 = Ws2812Esp32Rmt::new(channel, led_pin).unwrap();
 
-    // pull buttons down
-    let mut button1 = PinDriver::input(peripherals.pins.gpio10).unwrap();
-    button1.set_pull(Pull::Up).unwrap();
-
     let mut hue = unsafe { esp_random() } as u8;
     loop {
         let pixels = std::iter::repeat(hsv2rgb(Hsv {
@@ -76,10 +72,10 @@ fn main() -> Result<(), EspError> {
         .take(25);
         ws2812.write_nocopy(pixels).unwrap();
 
-        // check button 1
-        if button1.is_low() {
-            log::info!("Button 1 pressed");
-        }
+        // // check button 1
+        // if button1.is_low() {
+        //     log::info!("Button 1 pressed");
+        // }
 
         FreeRtos::delay_ms(100);
 
@@ -149,4 +145,28 @@ fn main() -> Result<(), EspError> {
     //         i = 0;
     //     }
     // }
+}
+
+/**
+ * Pin Mapping
+ * gpio10 - button1
+ * gpio8 - button2
+ * gpio3 - button3
+ * gpio2 - button4
+ *
+ * button1 is the most right button
+ * button4 is the most left button
+ */
+pub fn setup_buttons(peripherals: Peripherals) {
+    let mut button1 = PinDriver::input(peripherals.pins.gpio10).unwrap();
+    button1.set_pull(esp_idf_hal::gpio::Pull::Up).unwrap();
+
+    let mut button2 = PinDriver::input(peripherals.pins.gpio8).unwrap();
+    button2.set_pull(esp_idf_hal::gpio::Pull::Up).unwrap();
+
+    let mut button3 = PinDriver::input(peripherals.pins.gpio3).unwrap();
+    button3.set_pull(esp_idf_hal::gpio::Pull::Up).unwrap();
+
+    let mut button4 = PinDriver::input(peripherals.pins.gpio2).unwrap();
+    button4.set_pull(esp_idf_hal::gpio::Pull::Up).unwrap();
 }
