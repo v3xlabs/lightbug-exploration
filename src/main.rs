@@ -1,34 +1,20 @@
 use config::DriverConfig;
-use embedded_graphics::pixelcolor::Rgb888;
-use embedded_graphics::prelude::*;
-use embedded_graphics::primitives::{Circle, PrimitiveStyle, Rectangle, Triangle};
-use esp_idf_hal::delay::Delay;
-use esp_idf_hal::gpio::{IOPin, InputPin, PinDriver, Pull};
-use esp_idf_hal::spi::{self, *};
-use esp_idf_hal::units::Hertz;
-use smart_leds::hsv::{hsv2rgb, Hsv};
-use esp_idf_hal::spi::{config::Config, Dma, SpiDriver, SPI2};
 use display_interface_spi::SPIInterface;
-use st7789::ST7789;
-
-use std::net::Ipv4Addr;
-use std::str::FromStr;
-
-use esp_idf_hal::{delay::FreeRtos, io::Write, peripherals::Peripherals};
-use esp_idf_svc::eventloop::EspSystemEventLoop;
-use esp_idf_svc::ipv4::Subnet;
-use esp_idf_svc::netif::NetifStack;
-use esp_idf_svc::nvs::EspDefaultNvsPartition;
-use esp_idf_svc::wifi::EspWifi;
-use esp_idf_svc::{
-    http::{self, server::EspHttpServer},
-    ipv4::RouterConfiguration,
-    netif::{EspNetif, NetifConfiguration},
-    wifi::{AccessPointConfiguration, Configuration},
+use embedded_graphics::pixelcolor::Rgb565;
+use esp_idf_hal::delay::{Delay, Ets};
+use esp_idf_hal::gpio::{
+    AnyInputPin, AnyOutputPin, Gpio1, Gpio16, Gpio4, OutputPin, PinDriver, Pull,
 };
+use esp_idf_hal::spi::SpiDriver;
+use esp_idf_hal::spi::{self, *};
+use mipidsi::{models, Builder};
+use smart_leds::hsv::{hsv2rgb, Hsv};
+
+use esp_idf_hal::{delay::FreeRtos, peripherals::Peripherals};
+use esp_idf_svc::eventloop::EspSystemEventLoop;
+use esp_idf_svc::nvs::EspDefaultNvsPartition;
 use esp_idf_sys::EspError;
 use esp_idf_sys::*;
-use ws2812_esp32_rmt_driver::lib_embedded_graphics::{LedPixelMatrix, Ws2812DrawTarget};
 use ws2812_esp32_rmt_driver::Ws2812Esp32Rmt;
 
 /**
@@ -62,19 +48,33 @@ fn main() -> Result<(), EspError> {
     // Initialize system event loop
     let sysloop = EspSystemEventLoop::take().unwrap();
 
-    let delay = Delay::new_default();
+    // Either doesnt matter
+    let mut delay = Delay::new_default();
+    // let mut delay = Ets;
 
-    // let reset = PinDriver::input_output_od(peripherals.pins.gpio5).unwrap();
-    // let mut sps = SpiDriver::new_without_sclk(peripherals.spi2, peripherals.pins.gpio4, None, &DriverConfig::default()).unwrap();
-    // let di = SPIInterface::new(sps, Dma::Disabled);
+    let rst = PinDriver::input_output_od(peripherals.pins.gpio5).unwrap();
+    let dc = PinDriver::input_output_od(peripherals.pins.gpio4).unwrap();
+    let sdo = peripherals.pins.gpio7;
 
-    // let config = DriverConfig::default();
-    // let dc = PinDriver::output(peripherals.pins.gpio4).unwrap();
-    // let spi = SpiDriver::new_without_sclk(peripherals.spi2, peripherals.pins.gpio4, None, &config).unwrap();
-    // let di: SPIInterface<_, _> = SPIInterface::new(spi, dc);
+    let spi = SpiDriver::new(
+        peripherals.spi2,
+        peripherals.pins.gpio6, // sclk
+        sdo,                    // mosi
+        None::<AnyInputPin>,    // miso
+        &spi::SpiDriverConfig::default(),
+    )?;
 
-    // let mut display = ST7789::new(di, None, None, 240, 240);
-    // display.init(&mut delay).unwrap();
+    let spi = SpiDeviceDriver::new(spi, None::<AnyOutputPin>, &spi::SpiConfig::default())?;
+
+    let di = SPIInterface::new(spi, dc);
+    let mut display = Builder::new(models::ST7789, di)
+        .reset_pin(rst)
+        .init(&mut delay)
+        .unwrap();
+
+    display
+        .set_pixel(5, 5, Rgb565::new(0xFF, 0x00, 0x00))
+        .unwrap();
 
     let mut button1 = PinDriver::input(peripherals.pins.gpio10).unwrap();
     button1.set_pull(Pull::Up).unwrap();
@@ -96,7 +96,7 @@ fn main() -> Result<(), EspError> {
 
         // check button 1
         if button1.is_low() {
-            log::info!("Button 1 pressed");
+            log::info!("Button 1 pressed!");
         }
 
         FreeRtos::delay_ms(100);
