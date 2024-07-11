@@ -1,6 +1,12 @@
 use config::DriverConfig;
 use display_interface_spi::SPIInterface;
-use embedded_graphics::pixelcolor::Rgb565;
+use embedded_graphics::geometry::{Point, Size};
+use embedded_graphics::{
+    pixelcolor::Rgb565,
+    pixelcolor::RgbColor,
+    prelude::*,
+    primitives::{PrimitiveStyleBuilder, Rectangle},
+};
 use esp_idf_hal::delay::{Delay, Ets};
 use esp_idf_hal::gpio::{
     AnyInputPin, AnyOutputPin, Gpio1, Gpio16, Gpio4, OutputPin, PinDriver, Pull,
@@ -55,12 +61,14 @@ fn main() -> Result<(), EspError> {
     let rst = PinDriver::input_output_od(peripherals.pins.gpio5).unwrap();
     let dc = PinDriver::input_output_od(peripherals.pins.gpio4).unwrap();
     let sdo = peripherals.pins.gpio7;
+    let sdi = peripherals.pins.gpio2;
 
     let spi = SpiDriver::new(
         peripherals.spi2,
         peripherals.pins.gpio6, // sclk
         sdo,                    // mosi
-        None::<AnyInputPin>,    // miso
+        Some(sdi),
+        // None::<AnyInputPin>,    // miso
         &spi::SpiDriverConfig::default(),
     )?;
 
@@ -72,8 +80,15 @@ fn main() -> Result<(), EspError> {
         .init(&mut delay)
         .unwrap();
 
-    display
-        .set_pixel(5, 5, Rgb565::new(0xFF, 0x00, 0x00))
+    let style = PrimitiveStyleBuilder::new()
+        .stroke_color(Rgb565::RED)
+        .stroke_width(3)
+        .fill_color(Rgb565::GREEN)
+        .build();
+
+    Rectangle::new(Point::new(0, 0), Size::new(240, 240))
+        .into_styled(style)
+        .draw(&mut display)
         .unwrap();
 
     let mut button1 = PinDriver::input(peripherals.pins.gpio10).unwrap();
